@@ -1,0 +1,16 @@
+OPEN_RATES = {'etc': 1.17, 'ltc': 1.17, 'btc': 1.2, 'bch': 1.17}
+CLOSE_RATES = {'etc': 1.148, 'ltc': 1.152, 'btc': 1.02, 'bch': 1.155}
+ADJUST_VALUES = {k: (OPEN_RATES[k] + CLOSE_RATES[k]) / 2 for k in OPEN_RATES.keys()}
+SUPPORT_COIN_TYPES=['ltc', 'bch','etc', 'btc']
+
+apikey='Your API KEY'
+secretkey='Your Secret Key''
+
+EMAILS=['YourEmail@yourmail.com']
+EMAIL_TITLE='[harvester] warning'
+WORKING_CONTRACT_TYPE='next_week'
+
+HTTP_PORT=8011
+
+
+WARNING_IF_BALANCE_LESS_THAN = 21000

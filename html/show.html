@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<!-- saved from url=(0054)http://bigflow.baidu.com/JudgeOnline/bigflow/show.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <title>ECharts</title>
+    <!-- 引入 echarts.js -->
+    <script src="./show_files/echarts.min.js"></script>
+    <script src="./show_files/jquery.min.js"></script>
+<body>
+    <!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+    <form>
+    <script type="text/javascript">
+    </script>
+    <p>数据条数：<input type='text' id='n' name="n" /> <br/>
+       显示币种:<input type='text' id='c' name="c" /> (btc ltc etc bch eth) <br/>
+       合约类型:<input type='text' id='t' name="t" /> (this_week next_week quarter)<br/>
+    <input type='submit' value='redraw'/></p>
+    </form>
+	<div id='balance'>
+		<table id='btable'></table>
+	</div>
+    <p id='loading'> LOADING....</p>
+    <div id="g1" style="width: 100%;height:600px;"></div>
+
+    <script type="text/javascript">
+    $(document).ready(function() {
+    	    /*-----------------实现1--------------------*/
+	    function getPar(par){
+	        //获取当前URL
+	        var local_url = document.location.href;
+	        //获取要取得的get参数位置
+	        var get = local_url.indexOf(par +"=");
+	        if(get == -1){
+	            return false;
+	        }
+	        //截取字符串
+	        var get_par = local_url.slice(par.length + get + 1);
+	        //判断截取后的字符串是否还有其他get参数
+	        var nextPar = get_par.indexOf("&");
+	        if(nextPar != -1){
+	            get_par = get_par.slice(0, nextPar);
+	        }
+	        return get_par;
+	    }
+
+	    /*--------------------实现2(返回 $_GET 对象, 仿PHP模式)----------------------*/
+	    var $_GET = (function(){
+	        var url = window.document.location.href.toString();
+	        var u = url.split("?");
+	        if(typeof(u[1]) == "string"){
+	            u = u[1].split("&");
+	            var get = {};
+	            for(var i in u){
+	                var j = u[i].split("=");
+	                get[j[0]] = j[1];
+	            }
+	            return get;
+	        } else {
+	            return {};
+	        }
+	    })();
+;
+        var timestamp=new Date().getTime();
+
+		$.getJSON('/cgi-bin/get_balance.py?ts=' + timestamp, function(balance){
+				$('#btable').append('<tr><th>coin</th><th>amount</th><th>price</th></tr>');
+				for (var coin in balance['info']) {
+				    $('#btable').append('<tr><td>' + coin + '</td><td>' + balance['info'][coin]['amount'] + '</td><td>'+ balance['info'][coin]['price'] +'</td></tr>');
+				}
+				$('#btable').append('<tr><td>total</td><td>' + balance['total'] + '</td><td>$</td></tr>');
+		});
+		$.getJSON("/cgi-bin/get_config.py?ts=" + timestamp, function (config) {
+	    var n = 2000;
+	    if ($_GET['n'] != undefined) {
+	    	n = $_GET['n'];
+		}
+		var c = config['SUPPORT_COIN_TYPES'].join('-');
+		if ($_GET['c'] != undefined) {
+	    	c = $_GET['c'];
+		}
+
+		// can be next_week,this_week,quarter. multi item delimed by comma.
+		var t = config['WORKING_CONTRACT_TYPE'];
+		if ($_GET['t'] != undefined) {
+			t = $_GET['t'];
+		}
+
+    	$("#n").val(n);
+    	$("#c").val(c);
+    	$("#t").val(t);
+
+            $.getJSON("/cgi-bin/data.py?ts=" + timestamp + '&n=' + n + '&c=' + c + '&t=' + t , function(data) {
+
+	        	$("#loading").hide();
+
+	 //       	data = [data[0]]
+	        	category_column = 'local_time'
+	        	name_column = 'name'
+	        	// names = ['btc_usd', 'btc_usd#this_week', 'btc_usd#next_week', 'btc_usd#quarter']
+	        	names = []
+	        	value_columns = ['buy', 'sell']
+
+	        	c = c.split('-');
+	        	t = t.split('-');
+	        	var vss = [];
+	        	for (var i in c) {
+	        		for (var j in t) {
+	        			var coin = c[i];
+	        			var symbol = coin + '_usdt';
+	        			symbol_with_t = symbol + '#' + t[j];
+	        			vss.push([symbol, symbol_with_t]);
+	        		}
+	        	}
+
+	        	// vss = [['btc_usdt', 'btc_usdt#next_week'], ['btc_usdt', 'btc_usdt#this_week'],
+	        	// 		['ltc_usdt', 'ltc_usdt#next_week'], ['ltc_usdt', 'ltc_usdt#this_week'],
+	        	// 		['etc_usdt', 'etc_usdt#next_week'], ['etc_usdt', 'etc_usdt#this_week']];
+
+	        	category_data = []
+	        	names = new Set()
+	        	ys = []
+
+	        	var last_category = null;
+	        	for (var i in data) {
+	        		var record = data[i];
+	        		if (last_category != record[category_column]) {
+	        			category_data.push(record[category_column]);
+	        			last_category = record[category_column];
+	        		}
+
+	        		names.add(record[name_column]);
+	        	}
+	        	names = Array.from(names);
+	        	yAxis = ['price rate', 'price_diff'].map(function(name) {
+					return {
+						scale: true,
+			            type: 'value',
+			            name: name,
+			            axisLabel: {
+			                formatter: '{value}'
+			        	}
+				    };
+	        	});
+
+	        	grouped = {}
+	        	data.forEach(function(elem, i) {
+	        		if (grouped[elem[category_column]] == undefined) {
+	        			grouped[elem[category_column]] = {};
+	        		}
+	        		grouped[elem[category_column]][elem[name_column]] = elem;
+	        	});
+
+	        	ser_datas = []
+	        	legend = {'data': [], 'selected': {}}
+	        	// names.forEach(function(name) {
+	        	// 	value_columns.forEach(function(value_col) {
+	        	// 		legend['data'].push(name + '#' + value_col);
+	        	// 		legend['selected'][name + '#' + value_col] = false;
+		        // 		ser_datas.push({'name': name + '#' + value_col, 'type': 'bar', 'data':[]});
+	        	// 	});
+	        	// });
+
+	        	// for (var category in grouped) {
+	        	// 	row = grouped[category]
+	        	// 	for (var i in names) {
+	        	// 		name = names[i];
+	        	// 		if (row[name] == undefined) {
+	        	// 			value_columns.forEach(function(value_col, j) {
+		        // 				ser_datas[i * value_columns.length + j]['data'].push(null);
+	        	// 			});
+	        	// 		} else {
+	        	// 			value_columns.forEach(function(value_col, j) {
+		        // 				ser_datas[i * value_columns.length + j]['data'].push(row[name][value_col]);
+	        	// 			});
+	        	// 		}
+	        	// 	}
+	        	// }
+
+
+	        	function get_diff(market1, market2) {
+	        		return market2['sell'] / market1['buy'];
+	        	}
+	        	var start_pos = ser_datas.length;
+
+	      		for (var i in vss) {
+	    			vs = vss[i];
+	    			name = vs[1] + '[close]';
+	    			legend['data'].push(name);
+	    			//legend['selected'][name] = false;
+					
+					var mark = [];
+                    var m = config['CLOSE_RATES'][name.split('_usdt')[0]];
+					if (m !== undefined) {
+					    mark = [{yAxis: m}];
+					}
+					console.log(mark);
+					ser_datas.push({'name': name, 'type': 'line', 'data': [], yAxisIndex: 0, markLine:{'precision': 4, 'data': mark}})
+				}
+
+	        	for (var category in grouped) {
+	        		row = grouped[category]
+	        		for (var i in vss) {
+	        			vs = vss[i];
+	        			market1 = row[vs[0]];
+	        			market2 = row[vs[1]];
+	        			if (market1 == undefined || market2 == undefined) {
+		       				ser_datas[start_pos + i * 1]['data'].push(null);
+
+	        			} else {
+		       				ser_datas[start_pos + i * 1]['data'].push(market2['sell'] / market1['buy']);
+	        			}
+	        		}
+	        	}
+
+				start_pos = ser_datas.length;
+	  			for (var i in vss) {
+	    			vs = vss[i];
+	    			name = vs[1] + '[open]';
+	    			legend['selected'][name] = false;
+	    			legend['data'].push(name);
+					var mark = [];
+                    var m = config['OPEN_RATES'][name.split('_usdt')[0]];
+					if (m !== undefined) {
+					    mark = [{yAxis: m}];
+					}
+					console.log(mark);
+					ser_datas.push({'name': name, 'type': 'line', 'data': [], yAxisIndex: 0, markLine: {'precision': 4, 'data': mark }})
+				}
+	        	for (var category in grouped) {
+	        		row = grouped[category]
+	        		for (var i in vss) {
+	        			vs = vss[i];
+	        			market1 = row[vs[0]];
+	        			market2 = row[vs[1]];
+	        			if (market1 == undefined || market2 == undefined) {
+		       				ser_datas[start_pos + i * 1]['data'].push(null);
+
+	        			} else {
+		       				ser_datas[start_pos + i * 1]['data'].push(market2['buy'] / market1['sell']);
+	        			}
+	        		}
+	        	}
+
+				option = {
+				    tooltip: {
+				        trigger: 'axis',
+				        axisPointer: {
+				            type: 'cross',
+				            crossStyle: {
+				                color: '#999'
+				            }
+				        }
+				    },
+				    toolbox: {
+				        feature: {
+				            dataView: {show: true, readOnly: false},
+				            magicType: {show: true, type: ['line', 'bar']},
+				            restore: {show: true},
+				            saveAsImage: {show: true}
+				        }
+				    },
+				    legend: legend,
+				    xAxis: [
+				        {
+				            type: 'category',
+				            data: category_data,
+				            axisPointer: {
+				                type: 'shadow'
+				            }
+				        }
+				    ],
+				    yAxis: yAxis,
+				    series: ser_datas
+				};
+	            // 使用刚指定的配置项和数据显示图表。
+	            var myChart = echarts.init(document.getElementById('g1'));
+	            myChart.setOption(option);
+	        });
+	    });
+    });
+
+
+    </script>
+
+
