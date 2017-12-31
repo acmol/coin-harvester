@@ -6,8 +6,8 @@ import os
 log = logger.get_logger('monitor')
 trading.log = log
 
-def get_infomation():
-    trading.get_infomation(trading.okcoinSpot, trading.okcoinFuture)
+def get_information():
+    trading.get_information(trading.okcoinSpot, trading.okcoinFuture)
     return trading.MARKETS
 
 def get_balance():
@@ -41,7 +41,7 @@ def is_balance_ok(balance, markets):
 
 import time
 if __name__ == "__main__":
-    markets = get_infomation()
+    markets = get_information()
     balance = get_balance()
     if conf.WARNING_IF_BALANCE_LESS_THAN * 1.2 < balance['total']:
         log.warning('Your setting of WARNING_IF_BALANCE_LESS_THAN is too small!')
@@ -54,7 +54,7 @@ if __name__ == "__main__":
                 time.sleep(3 * 60)
                 continue
             
-            markets = get_infomation()
+            markets = get_information()
             balance = get_balance()
 
             if not is_balance_ok(balance, markets):
