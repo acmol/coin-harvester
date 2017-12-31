@@ -23,7 +23,7 @@ def get_logger(name):
     name = name    # 为%(name)s赋值
     logger = logging.getLogger(name)
 
-    ch = logging.StreamHandler()
+    ch = logging.handlers.TimedRotatingFileHandler(filename + '.info', 'D', 1, 10)
     gs = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s[line:%(lineno)d] - %(message)s')
     ch.setFormatter(gs)
     ch.setLevel('INFO')

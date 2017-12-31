@@ -5,4 +5,4 @@
 # Created Time: Wed 27 Dec 2017 10:04:15 PM CST
 #########################################################################
 #!/bin/bash
-tailf log/trading.err
+tailf log/trading.log.info

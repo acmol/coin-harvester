@@ -62,6 +62,11 @@ default_price = 10
 def get_contract_price(coin):
     return contract_price.get(coin, default_price)
 
+def get_contract_amount_by_coin_amount(coin_amount, contract_price, coin_type):
+    return int(coin_amount * contract_price / get_contract_price(coin_type))
+
+def get_coin_amount_by_contract_amount(contract_amount, contract_price, coin_type):
+    return contract_amount * get_contract_price(coin_type) / contract_price
 
 def make_order(market_infos, need, coin, total_coin, total_usdt):
     import copy
@@ -101,21 +106,20 @@ def make_order(market_infos, need, coin, total_coin, total_usdt):
                     continue
                 coin_amount = ask['coin_amount']
                 coin_can_buy = usdt_total / ask['price']
-                if coin_can_buy <= 0.001:
+                if coin_can_buy < 0.01:
                     no_need_spot = True
                     continue
                 buy_amount = min(need_buy, coin_can_buy, coin_amount)
 
-                if buy_amount <= 0.001:
+                if buy_amount < 0.01:
                     continue
                 if buy_amount > 0:
                     orders.append({'market': market, 'symbol': coin + "_usdt", 'amount': buy_amount, 'price': ask['price'], 'type': 'buy'})
 
                 need_buy -= buy_amount
                 usdt_total -= buy_amount * buy_amount
-                if need_buy <= 0.001:
+                if need_buy < 0.01:
                     print ('need amount is about 0, exit')
-                    sys.stdout.flush()
                     return orders
             else:
                 if no_need_future:
@@ -155,7 +159,7 @@ def make_order(market_infos, need, coin, total_coin, total_usdt):
             if market == 'spot':
                 if no_need_spot:
                     continue
-                if coin_total <= 0.001:
+                if coin_total < 0.01:
                     no_need_spot = True
                     continue
                 
@@ -167,7 +171,7 @@ def make_order(market_infos, need, coin, total_coin, total_usdt):
                 coin_total -= sell_amount
 
                 #FIXME: magic number
-                if need_sell <= 0.001:
+                if need_sell < 0.01:
                     print ('need amount too small, exit.')
                     sys.stdout.flush()
                     print (orders)
@@ -192,6 +196,7 @@ def make_order(market_infos, need, coin, total_coin, total_usdt):
                     print ('need amount too small, exit')
                     sys.stdout.flush()
                     no_need_future=True
+                    need_sell -= get_coin_amount_by_contract_amount(sell_amount, bid['price'], coin)
 
         log.warning('this is not normal, because all market orders will be eatten')
         return orders
@@ -477,12 +482,6 @@ def future_get_max_sell_amount(future_market, coin_type, contract_type, current_
     log.info('min_sell_amount= ' + str(min_sell_amount))
     return sell_amount - min_sell_amount
 
-def get_contract_amount_by_coin_amount(coin_amount, contract_price, coin_type):
-    return int(coin_amount * contract_price / get_contract_price(coin_type))
-
-def get_coin_amount_by_contract_amount(contract_amount, contract_price, coin_type):
-    return contract_amount * get_contract_price(coin_type) / contract_price
-
 def judge(coin_type, contract_type):
     symbol = coin_type + '_usdt'
     spot_depth = try_it(3)(okcoinSpot.depth)(symbol)
@@ -521,7 +520,7 @@ def judge(coin_type, contract_type):
 
         amount = min(spot_max_can_buy_amount, spot_sell_1_amount, future_buy_1_equality_amount)
 
-        min_amount = max(0.001, (get_contract_price(coin_type) / future_buy_1[0]))
+        min_amount = max(0.01, (get_contract_price(coin_type) / future_buy_1[0]))
 
         if amount >= min_amount:
             log.warning('[Open][%s#%s] Should sell future and buy spot, future_buy_1[0] / spot_sell_1[0] = '% (coin_type, contract_type) + str(future_buy_1[0] / spot_sell_1[0]))
