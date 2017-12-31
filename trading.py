@@ -249,6 +249,8 @@ def suggestion(coin_market, future_market, coin, contract_type):
     else:
         holding = holding[0]
         holding_coin_amount = holding['sell_amount'] * 1.0 * get_contract_price(coin) / MARKETS['future']['ticker']['last']
+        initial_coin_amount = get_coin_amount_by_contract_amount(holding['sell_amount'], holding['sell_price_avg'], coin)
+        holding_coin_amount = initial_coin_amount + holding['profit'] + holding['unprofit']
         need =  holding_coin_amount - free_coin -  rights
         log.debug('holding = %s' % str(holding))
         log.info('holding_coin_amount = %f' % holding_coin_amount)
@@ -505,6 +507,7 @@ def judge(coin_type, contract_type):
         if amount > 0:
             log.warning('[Close][%s#%s] Should buy future and sell spot, future_sell_1[0] / spot_buy_1[0] = %s'%(coin_type, contract_type, future_sell_1[0] / spot_buy_1[0]))
             send_future_orders(okcoinFuture, [{'symbol': symbol, 'amount': amount, 'price': future_sell_1[0], 'type': 'buy', 'contract_type': contract_type}])
+            return True
 
     if future_buy_1[0] > spot_sell_1[0] * OPEN_RATES[coin_type]:
         
@@ -523,9 +526,11 @@ def judge(coin_type, contract_type):
         if amount >= min_amount:
             log.warning('[Open][%s#%s] Should sell future and buy spot, future_buy_1[0] / spot_sell_1[0] = '% (coin_type, contract_type) + str(future_buy_1[0] / spot_sell_1[0]))
             send_spot_orders(okcoinSpot, [{'symbol': symbol, 'amount': amount, 'price': spot_sell_1[0], 'type': 'buy'}])
+            return True
 
     log.info('%s#%s future_sell_1[0] / spot_buy_1[0] = %s' % (coin_type, contract_type, future_sell_1[0] / spot_buy_1[0]))
     log.info('%s#%s future_buy_1[0] / spot_sell_1[0] = %s' % (coin_type, contract_type, future_buy_1[0] / spot_sell_1[0]))
+    return False
 
 def run_orders(spot_market, future_market, orders, coin_type):
     spot_orders = [order for order in orders if order['market'] == 'spot']
@@ -544,61 +549,64 @@ def run_orders(spot_market, future_market, orders, coin_type):
 def main():
     while True:
         for coin_type in SUPPORT_COIN_TYPES:
-            contract_type=WORKING_CONTRACT_TYPE
-            local_time = datetime.datetime.now()
-            msg = '##########################\n' + str(local_time) + ':current coin type is [' + coin_type + ']'
-            log.info(msg)
-            symbol = coin_type + '_usdt'
-            init_trade(symbol)
+            while True:
+                contract_type=WORKING_CONTRACT_TYPE
+                local_time = datetime.datetime.now()
+                msg = '##########################\n' + str(local_time) + ':current coin type is [' + coin_type + ']'
+                log.info(msg)
+                symbol = coin_type + '_usdt'
+                init_trade(symbol)
 
-            get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
-            judge(coin_type, contract_type)
+                get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
 
-            init_trade(symbol)
-            get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
+                if not judge(coin_type, contract_type):
+                    break
 
-            local_time = datetime.datetime.now()
-
-            orders = suggestion(okcoinSpot, okcoinFuture, coin_type, contract_type)
-            times = 0
-            while len(orders) != 0:
-                try:
-                    run_orders(okcoinSpot, okcoinFuture, orders, coin_type)
-                except Exception as e:
-                    log.info('exception occurred')
-                    import traceback
-                    log.info(traceback.format_exc())
                 init_trade(symbol)
                 get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
+
+                local_time = datetime.datetime.now()
+
                 orders = suggestion(okcoinSpot, okcoinFuture, coin_type, contract_type)
-                assert times <= 3, 'tried to balance, but failed 3 times' + str(orders)
-                times += 1
+                times = 0
+                while len(orders) != 0:
+                    try:
+                        run_orders(okcoinSpot, okcoinFuture, orders, coin_type)
+                    except Exception as e:
+                        log.info('exception occurred')
+                        import traceback
+                        log.info(traceback.format_exc())
+                    init_trade(symbol)
+                    get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
+                    orders = suggestion(okcoinSpot, okcoinFuture, coin_type, contract_type)
+                    assert times <= 3, 'tried to balance, but failed 3 times' + str(orders)
+                    times += 1
 
-            total_balance = 0
-            balance_info = {'info': { }}
-            log.info ('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-            for coin in SUPPORT_COIN_TYPES:
-                coin_depth = try_it(3)(okcoinSpot.depth)(coin + '_usdt')
-                balance_info['info'][coin] = {}
-                balance_info['info'][coin]['price'] = coin_depth['bids'][0][0]
-                balance_info['info'][coin]['amount'] =  MARKETS['spot']['userinfo']['info']['funds']['freezed'][coin] + MARKETS['spot']['userinfo']['info']['funds']['free'][coin] + MARKETS['future']['userinfo']['info'][coin]['rights']
-                log.info('%s %s %s' % (coin, coin_depth['bids'][0][0], balance_info['info'][coin]['amount']))
+                total_balance = 0
+                balance_info = {'info': { }}
+                log.info ('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+                for coin in SUPPORT_COIN_TYPES:
+                    coin_depth = try_it(3)(okcoinSpot.depth)(coin + '_usdt')
+                    balance_info['info'][coin] = {}
+                    balance_info['info'][coin]['price'] = coin_depth['bids'][0][0]
+                    balance_info['info'][coin]['amount'] =  MARKETS['spot']['userinfo']['info']['funds']['freezed'][coin] + MARKETS['spot']['userinfo']['info']['funds']['free'][coin] + MARKETS['future']['userinfo']['info'][coin]['rights']
+                    log.info('%s %s %s' % (coin, coin_depth['bids'][0][0], balance_info['info'][coin]['amount']))
 
-                total_balance += coin_depth['bids'][0][0] * (MARKETS['spot']['userinfo']['info']['funds']['freezed'][coin] + MARKETS['spot']['userinfo']['info']['funds']['free'][coin] + MARKETS['future']['userinfo']['info'][coin]['rights'])
+                    total_balance += coin_depth['bids'][0][0] * (MARKETS['spot']['userinfo']['info']['funds']['freezed'][coin] + MARKETS['spot']['userinfo']['info']['funds']['free'][coin] + MARKETS['future']['userinfo']['info'][coin]['rights'])
 
-            total_usdt = MARKETS['spot']['userinfo']['info']['funds']['free']['usdt']
-            balance_info['info']['usdt'] = {'amount': total_usdt, 'price': 1}
-            balance_info['total'] = total_balance + total_usdt
+                total_usdt = MARKETS['spot']['userinfo']['info']['funds']['free']['usdt']
+                balance_info['info']['usdt'] = {'amount': total_usdt, 'price': 1}
+                balance_info['total'] = total_balance + total_usdt
 
-            import json
-            with open('info/.balance-writting', 'w') as bf:
-                json.dump(balance_info, bf)
-            import os
-            os.rename('info/.balance-writting', 'info/balance')
-            log.info('usdt %s' % total_usdt)
-            log.info('total_balance = ' + str(total_balance + total_usdt))
-            log.info ('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-            init_trade(symbol)
+                import json
+                with open('info/.balance-writting', 'w') as bf:
+                    json.dump(balance_info, bf)
+                import os
+                os.rename('info/.balance-writting', 'info/balance')
+                log.info('usdt %s' % total_usdt)
+                log.info('total_balance = ' + str(total_balance + total_usdt))
+                log.info ('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+                init_trade(symbol)
 
 if __name__ == "__main__":
     n = 0
