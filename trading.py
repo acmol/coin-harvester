@@ -544,9 +544,34 @@ def run_orders(spot_market, future_market, orders, coin_type):
     devolve_all_to_future(spot_market, future_market, coin_type)
     send_future_orders(future_market, future_orders)
 
+def do_balance(coin_type, contract_type):
+    symbol = coin_type + '_usdt'
+    init_trade(symbol)
+    get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
+    orders = suggestion(okcoinSpot, okcoinFuture, coin_type, contract_type)
+    times = 0
+    while len(orders) != 0:
+        try:
+            run_orders(okcoinSpot, okcoinFuture, orders, coin_type)
+        except Exception as e:
+            log.info('exception occurred')
+            import traceback
+            log.info(traceback.format_exc())
+        init_trade(symbol)
+        get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
+        orders = suggestion(okcoinSpot, okcoinFuture, coin_type, contract_type)
+        assert times <= 3, 'tried to balance, but failed 3 times' + str(orders)
+        times += 1
+
+
+def balance_all():
+    for coin_type in SUPPORT_COIN_TYPES:
+        contract_type = WORKING_CONTRACT_TYPE
+        do_balance(coin_type, contract_type)
 
 
 def main():
+    balance_all()
     while True:
         for coin_type in SUPPORT_COIN_TYPES:
             while True:
@@ -562,25 +587,8 @@ def main():
                 if not judge(coin_type, contract_type):
                     break
 
-                init_trade(symbol)
-                get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
-
+                do_balance(coin_type, contract_type)
                 local_time = datetime.datetime.now()
-
-                orders = suggestion(okcoinSpot, okcoinFuture, coin_type, contract_type)
-                times = 0
-                while len(orders) != 0:
-                    try:
-                        run_orders(okcoinSpot, okcoinFuture, orders, coin_type)
-                    except Exception as e:
-                        log.info('exception occurred')
-                        import traceback
-                        log.info(traceback.format_exc())
-                    init_trade(symbol)
-                    get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
-                    orders = suggestion(okcoinSpot, okcoinFuture, coin_type, contract_type)
-                    assert times <= 3, 'tried to balance, but failed 3 times' + str(orders)
-                    times += 1
 
                 total_balance = 0
                 balance_info = {'info': { }}
