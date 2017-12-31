@@ -249,8 +249,8 @@ def suggestion(coin_market, future_market, coin, contract_type):
     else:
         holding = holding[0]
         holding_coin_amount = holding['sell_amount'] * 1.0 * get_contract_price(coin) / MARKETS['future']['ticker']['last']
-        initial_coin_amount = get_coin_amount_by_contract_amount(holding['sell_amount'], holding['sell_price_avg'], coin)
-        holding_coin_amount = initial_coin_amount + holding['profit'] + holding['unprofit']
+        #initial_coin_amount = get_coin_amount_by_contract_amount(holding['sell_amount'], holding['sell_price_avg'], coin)
+        #holding_coin_amount = initial_coin_amount + holding['profit'] + holding['unprofit']
         need =  holding_coin_amount - free_coin -  rights
         log.debug('holding = %s' % str(holding))
         log.info('holding_coin_amount = %f' % holding_coin_amount)
