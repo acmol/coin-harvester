@@ -295,7 +295,7 @@ def devolve_all_to_future(coin_market, future_market, coin_type):
     assert MARKETS['spot']['userinfo']['info']['funds']['free'][coin_type] < 0.01, str(MARKETS)
     return MARKETS['spot']['userinfo']['info']['funds']['free'][coin_type]
 
-def get_infomation(coin_market, future_market, symbol=None, contract_type=None):
+def get_information(coin_market, future_market, symbol=None, contract_type=None):
     MARKETS['spot'] = {}
     MARKETS['future'] = {}
     MARKETS['spot']['userinfo'] = try_it(3)(coin_market.userinfo)()
@@ -547,7 +547,7 @@ def run_orders(spot_market, future_market, orders, coin_type):
 def do_balance(coin_type, contract_type):
     symbol = coin_type + '_usdt'
     init_trade(symbol)
-    get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
+    get_information(okcoinSpot, okcoinFuture, symbol, contract_type)
     orders = suggestion(okcoinSpot, okcoinFuture, coin_type, contract_type)
     times = 0
     while len(orders) != 0:
@@ -558,7 +558,7 @@ def do_balance(coin_type, contract_type):
             import traceback
             log.info(traceback.format_exc())
         init_trade(symbol)
-        get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
+        get_information(okcoinSpot, okcoinFuture, symbol, contract_type)
         orders = suggestion(okcoinSpot, okcoinFuture, coin_type, contract_type)
         assert times <= 3, 'tried to balance, but failed 3 times' + str(orders)
         times += 1
@@ -582,7 +582,7 @@ def main():
                 symbol = coin_type + '_usdt'
                 init_trade(symbol)
 
-                get_infomation(okcoinSpot, okcoinFuture, symbol, contract_type)
+                get_information(okcoinSpot, okcoinFuture, symbol, contract_type)
 
                 if not judge(coin_type, contract_type):
                     break
@@ -626,7 +626,7 @@ if __name__ == "__main__":
             log.exception(e)
             log.warning("exception occurred, retry... it's the %d time(s)" % n)
 
-# get_infomation(okcoinSpot, okcoinFuture)
+# get_information(okcoinSpot, okcoinFuture)
 # print (future_get_max_sell_amount(okcoinFuture, 'etc', 'next_week', 289))
 
 # # print (MARKETS['future']['userinfo'], '\n============================')
