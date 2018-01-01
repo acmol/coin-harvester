@@ -15,7 +15,7 @@ import logger
 
 log = logger.get_logger('trading')
 
-from conf import OPEN_RATES, CLOSE_RATES, ADJUST_VALUES, apikey, secretkey, SUPPORT_COIN_TYPES, WORKING_CONTRACT_TYPE
+from conf import OPEN_RATES, CLOSE_RATES, ADJUST_VALUES, apikey, secretkey, SUPPORT_COIN_TYPES, WORKING_CONTRACT_TYPE, MAX_USDT_PER_TRADING
 
 
 okcoinRESTURL = 'www.okex.com'   #请求注意：国内账号需要 修改为 www.okcoin.cn
@@ -497,12 +497,18 @@ def judge(coin_type, contract_type):
     if future_sell_1[0] < spot_buy_1[0] * CLOSE_RATES[coin_type]:
         future_sell_1_amount = future_sell_1[1]
         future_max_sell_amount = future_get_max_sell_amount(okcoinFuture, coin_type, contract_type, future_sell_1[0])
-        spot_buy_1_equality_amount = get_contract_amount_by_coin_amount(spot_buy_1[1], future_sell_1[0], coin_type)
+
+        total_can_sell_coin =  MARKETS['spot']['userinfo']['info']['funds']['freezed'][coin_type] + MARKETS['spot']['userinfo']['info']['funds']['free'][coin_type] + MARKETS['future']['userinfo']['info'][coin_type]['balance']
+        total_can_sell_coin = min(total_can_sell_coin, spot_buy_1[1])
+
+        spot_buy_1_equality_amount = get_contract_amount_by_coin_amount(total_can_sell_coin, future_sell_1[0], coin_type)
+        
+        max_contract_number = MAX_USDT_PER_TRADING / get_contract_price(coin_type)
 
         log.info('future_sell_1_amount = %d, future_max_sell_amount = %d, spot_buy_1_equality_amount = %d' %(future_sell_1_amount, future_max_sell_amount, spot_buy_1_equality_amount))
 
-        amount = min(future_sell_1_amount, future_max_sell_amount, spot_buy_1_equality_amount)
-
+        amount = min(future_sell_1_amount, future_max_sell_amount, spot_buy_1_equality_amount, max_contract_number)
+    
         if amount > 0:
             log.warning('[Close][%s#%s] Should buy future and sell spot, future_sell_1[0] / spot_buy_1[0] = %s'%(coin_type, contract_type, future_sell_1[0] / spot_buy_1[0]))
             send_future_orders(okcoinFuture, [{'symbol': symbol, 'amount': amount, 'price': future_sell_1[0], 'type': 'buy', 'contract_type': contract_type}])
@@ -520,6 +526,8 @@ def judge(coin_type, contract_type):
 
         amount = min(spot_max_can_buy_amount, spot_sell_1_amount, future_buy_1_equality_amount)
 
+        amount = min(amount, MAX_USDT_PER_TRADING / spot_sell_1[0])
+        
         min_amount = max(0.01, (get_contract_price(coin_type) / future_buy_1[0]))
 
         if amount >= min_amount:
