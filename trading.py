@@ -446,8 +446,8 @@ def future_get_min_sell_amount(future_market, coin_type, contract_type, current_
         contract = get_user_contract_balance(future_market, coin_type, contract_type)
         log.debug(contract)
         bond = contract['bond']
-
-        return int(max(bond, profit) * current_price / get_contract_price(coin_type))
+        import math
+        return math.ceil(max(bond, profit) * current_price / get_contract_price(coin_type))
 
 
 def get_balance(spot_market, future_market):
@@ -499,6 +499,8 @@ def judge(coin_type, contract_type):
         future_max_sell_amount = future_get_max_sell_amount(okcoinFuture, coin_type, contract_type, future_sell_1[0])
 
         total_can_sell_coin =  MARKETS['spot']['userinfo']['info']['funds']['freezed'][coin_type] + MARKETS['spot']['userinfo']['info']['funds']['free'][coin_type] + MARKETS['future']['userinfo']['info'][coin_type]['balance']
+        log.info('total can sell coin is %f' % total_can_sell_coin)
+        log.debug(MARKETS)
         total_can_sell_coin = min(total_can_sell_coin, spot_buy_1[1])
 
         spot_buy_1_equality_amount = get_contract_amount_by_coin_amount(total_can_sell_coin, future_sell_1[0], coin_type)
