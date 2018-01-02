@@ -63,7 +63,7 @@ if __name__ == "__main__":
             error_cnt = 0
         except Exception as e:
             import traceback
-            log.info(traceback.format_exc(e))
+            log.info(traceback.format_exc())
             error_cnt +=1
             if error_cnt >=5:
                 log.warn('[STOPED]monitor failed 5 times, so stop trading')
