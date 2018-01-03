@@ -2,7 +2,7 @@ import trading
 import logger
 import conf
 import os
-
+import datetime
 log = logger.get_logger('monitor')
 trading.log = log
 
@@ -39,12 +39,30 @@ def is_balance_ok(balance, markets):
         return False
     return True
 
+
+class BalanceSaver(object):
+    def __init__(self):
+        import sqlite3
+        self.connection = sqlite3.connect("balance.db")
+
+    def save_balance(self, balance):
+        import json
+        local_time = datetime.datetime.now()
+        lt = local_time.strftime('%Y-%m-%d %H:%M:%S')
+        c = self.connection.cursor()
+        c.execute(''' insert into total_balance (ts, balance, json_data) values(?, ?, ?) ''' , (lt, balance['total'], json.dumps(balance)))
+        self.connection.commit()
+
+
+
 import time
 if __name__ == "__main__":
     markets = get_information()
     balance = get_balance()
     if conf.WARNING_IF_BALANCE_LESS_THAN * 1.2 < balance['total']:
         log.warning('Your setting of WARNING_IF_BALANCE_LESS_THAN is too small!')
+
+    saver = BalanceSaver()
     
     error_cnt = 0
     while True:
@@ -56,9 +74,9 @@ if __name__ == "__main__":
             
             markets = get_information()
             balance = get_balance()
-
             if not is_balance_ok(balance, markets):
                 stop_trading()
+            saver.save_balance(balance)
 
             error_cnt = 0
         except Exception as e:
