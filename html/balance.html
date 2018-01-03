@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<!-- saved from url=(0054)http://bigflow.baidu.com/JudgeOnline/bigflow/show.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <title>ECharts</title>
+    <!-- 引入 echarts.js -->
+    <script src="./show_files/echarts.min.js"></script>
+    <script src="./show_files/jquery.min.js"></script>
+<body>
+    <!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+    <form>
+    <script type="text/javascript">
+    </script>
+    <p>数据条数：<input type='text' id='n' name="n" /> <br/>
+    <input type='submit' value='redraw'/></p>
+    </form>
+	<div id='balance'>
+		<table id='btable'></table>
+        <div><p>Balance Last Update Time: <span id="update_time"></span></p></div>
+	</div>
+    <p id='loading'> LOADING....</p>
+    <div id="g1" style="width: 100%;height:600px;"></div>
+
+    <script type="text/javascript">
+    $(document).ready(function() {
+    	    /*-----------------实现1--------------------*/
+	    function getPar(par){
+	        //获取当前URL
+	        var local_url = document.location.href;
+	        //获取要取得的get参数位置
+	        var get = local_url.indexOf(par +"=");
+	        if(get == -1){
+	            return false;
+	        }
+	        //截取字符串
+	        var get_par = local_url.slice(par.length + get + 1);
+	        //判断截取后的字符串是否还有其他get参数
+	        var nextPar = get_par.indexOf("&");
+	        if(nextPar != -1){
+	            get_par = get_par.slice(0, nextPar);
+	        }
+	        return get_par;
+	    }
+
+	    /*--------------------实现2(返回 $_GET 对象, 仿PHP模式)----------------------*/
+	    var $_GET = (function(){
+	        var url = window.document.location.href.toString();
+	        var u = url.split("?");
+	        if(typeof(u[1]) == "string"){
+	            u = u[1].split("&");
+	            var get = {};
+	            for(var i in u){
+	                var j = u[i].split("=");
+	                get[j[0]] = j[1];
+	            }
+	            return get;
+	        } else {
+	            return {};
+	        }
+	    })();
+;
+        var timestamp=new Date().getTime();
+        var n = 1000;
+        if ($_GET['n'] != undefined) {
+        	n = $_GET['n'];
+    	}
+
+  	    $("#n").val(n);
+
+		$.getJSON('/cgi-bin/get_balances.py?ts=' + timestamp + '&n=' + n, function(balances){
+                inital_usdt = balances['intital_usdt'];
+                if (inital_usdt == undefined) {
+                    intial_usdt = 0;
+                }
+                balances = balances['balances'];
+                var balance = balances[balances.length - 1];
+				$('#btable').append('<tr><th>coin</th><th>amount</th><th>price</th></tr>');
+				for (var coin in balance['info']) {
+				    $('#btable').append('<tr><td>' + coin + '</td><td>' + balance['info'][coin]['amount'] + '</td><td>'+ balance['info'][coin]['price'] +'</td></tr>');
+				}
+				$('#btable').append('<tr><td>total</td><td>' + balance['total'] + '</td><td>$</td></tr>');
+                $("#update_time").text(balance['time']);
+	 
+	        	$("#loading").hide();
+                
+                
+				option = {
+				    tooltip: {
+				        trigger: 'axis',
+				        axisPointer: {
+				            type: 'cross',
+				            crossStyle: {
+				                color: '#999'
+				            }
+				        }
+				    },
+				    toolbox: {
+				        feature: {
+				            dataView: {show: true, readOnly: false},
+				            magicType: {show: true, type: ['line', 'bar']},
+				            restore: {show: true},
+				            saveAsImage: {show: true}
+				        }
+				    },
+                    legend: { data: ['total_balance']},
+				    xAxis: [
+				        {
+				            type: 'category',
+				            data: [],
+				            axisPointer: {
+				                type: 'shadow'
+				            }
+				        }
+				    ],
+				    yAxis: [{
+						scale: true,
+			            type: 'value',
+			            name: 'usdt',
+			            axisLabel: {
+			                formatter: '{value}'
+                        }
+                    }],
+				    series: [
+                            {'name': 'total_balance', 'type': 'line', 'data': [], yAxisIndex: 0}
+                    ]
+				};
+                
+        if (intial_usdt != 0) {
+            option['series'][0]['markLine'] = {'precision': 4, 'data': [{ 'yAxis': inital_usdt }]};
+        }
+                console.log(balances);
+                               for (var i in balances) {
+                                   
+                                   option['xAxis'][0]['data'].push(balances[i]['time']);
+                                   option['series'][0]['data'].push(balances[i]['total']);
+                               }
+	            // 使用刚指定的配置项和数据显示图表。
+	            var myChart = echarts.init(document.getElementById('g1'));
+	            myChart.setOption(option);
+	    });
+    });
+
+
+    </script>
+
+

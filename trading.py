@@ -464,6 +464,8 @@ def get_balance(spot_market, future_market):
     total_usdt = MARKETS['spot']['userinfo']['info']['funds']['free']['usdt']
     balance_info['info']['usdt'] = {'amount': total_usdt, 'price': 1}
     balance_info['total'] = total_balance + total_usdt
+    import util
+    balance_info['time'] = util.now_time_str()
 
     log.info('usdt %s' % total_usdt)
     log.info('total_balance = ' + str(total_balance + total_usdt))
