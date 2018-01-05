@@ -531,7 +531,7 @@ def judge(coin_type, contract_type):
 
         log.info('future_sell_1_amount = %d, future_max_sell_amount = %d, spot_buy_1_equality_amount = %d' %(future_sell_1_amount, future_max_sell_amount, spot_buy_1_equality_amount))
 
-        amount = min(future_sell_1_amount, future_max_sell_amount, spot_buy_1_equality_amount, max_contract_number)
+        amount = int(min(future_sell_1_amount, future_max_sell_amount, spot_buy_1_equality_amount, max_contract_number))
     
         if amount > 0:
             log.warning('[Close][%s#%s] Should buy future and sell spot, future_sell_1[0] / spot_buy_1[0] = %s'%(coin_type, contract_type, future_sell_1[0] / spot_buy_1[0]))
