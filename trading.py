@@ -68,6 +68,17 @@ def get_contract_amount_by_coin_amount(coin_amount, contract_price, coin_type):
 def get_coin_amount_by_contract_amount(contract_amount, contract_price, coin_type):
     return contract_amount * get_contract_price(coin_type) / contract_price
 
+def check_orders(fn):
+    def _fn(market_infos, need, coin, total_coin, total_usdt):
+        orders = fn(market_infos, need, coin, total_coin, total_usdt)
+        total = sum([order['amount'] for order in orders if order['market'] == 'spot'])
+        n = need
+        if n < 0: 
+            n = - n
+        assert -n <= total <= n, str(orders) + ' total is = ' + str(total) + ', n is =' + str(n) 
+        return orders
+    return _fn
+@check_orders
 def make_order(market_infos, need, coin, total_coin, total_usdt):
     import copy
     market_infos = copy.deepcopy(market_infos)
@@ -165,8 +176,8 @@ def make_order(market_infos, need, coin, total_coin, total_usdt):
                 
                 coin_amount = bid['coin_amount']
                 sell_amount = min(need_sell, coin_total, coin_amount)
-
-                orders.append({'market': market, 'symbol': coin + "_usdt", 'amount': sell_amount, 'price': bid['price'], 'type': 'sell'})
+                
+                orders.append({'market': market, 'symbol': coin + "_usdt", 'amount': int(1000 * sell_amount) / 1000, 'price': bid['price'], 'type': 'sell'})
                 need_sell -= sell_amount
                 coin_total -= sell_amount
 
@@ -283,11 +294,20 @@ def devolve_for_sell(coin_market, future_market, coin_type, coin_amount):
     to_devolve = coin_amount - MARKETS['spot']['userinfo']['info']['funds']['free'][coin_type]
     if to_devolve < 0:
         return None 
-    future_market.future_devolve(coin_type + '_usdt', '2', to_devolve)
+
+    # 如果调用devolve(3.0),则有可能会实际转过去的量为2.99999..，少于3.0导致卖出失败
+    # 这里再尝试多转0.001个，以便解决这个问题(如果转失败，也无所谓)
+    result = future_market.future_devolve(coin_type + '_usdt', '2', to_devolve + 0.001)
+    log.debug(str(result))
+    if not result['result']:
+        result = future_market.future_devolve(coin_type + '_usdt', '2', to_devolve)
+        log.debug('try to devolve more coin failed, so just devolve the needed coin, result = %s'% str(result))
+
     MARKETS['spot']['userinfo'] = try_it(3)(coin_market.userinfo)()
     MARKETS['future']['userinfo'] = try_it(3)(future_market.future_userinfo_4fix)()
     to_devolve = coin_amount - MARKETS['spot']['userinfo']['info']['funds']['free'][coin_type]
     assert -0.01 <= to_devolve <= 0.01, str((coin_amount, MARKETS['spot']['userinfo']['info']['funds']['free'][coin_type], to_devolve))
+    log.info('there are [%s] [%s] for sell' % (MARKETS['spot']['userinfo']['info']['funds']['free'][coin_type], coin_type))
     return MARKETS['spot']['userinfo']['info']['funds']['free'][coin_type]
 
 @try_it(3)

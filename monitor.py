@@ -88,7 +88,7 @@ if __name__ == "__main__":
                 stop_trading()
             time.sleep(3)
                 
-        time.sleep(10)
+        time.sleep(30)
 
 
     
