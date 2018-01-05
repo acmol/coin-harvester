@@ -118,7 +118,7 @@ while True:
     get_and_save_ticker('eth_usdt', okcoinFuture, local_time, 'quarter')
     conn.commit()
 
-    time.sleep(10)
+    time.sleep(30)
 
 #print (u' 现货历史交易信息 ')
 #print (okcoinSpot.trades())
