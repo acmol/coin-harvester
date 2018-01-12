@@ -107,7 +107,6 @@ def make_order(market_infos, need, coin, total_coin, total_usdt):
         need_buy = need
         usdt_total = total_usdt
         log.info('need_buy is [%s], usdt_total is [%s]' %(need_buy, usdt_total))
-        sys.stdout.flush()
 
         for (market, ask) in asks:
             if no_need_spot and no_need_future:
@@ -130,7 +129,7 @@ def make_order(market_infos, need, coin, total_coin, total_usdt):
                 need_buy -= buy_amount
                 usdt_total -= buy_amount * buy_amount
                 if need_buy < 0.01:
-                    print ('need amount is about 0, exit')
+                    log.debug('need amount is about 0, exit')
                     return orders
             else:
                 if no_need_future:
@@ -142,13 +141,11 @@ def make_order(market_infos, need, coin, total_coin, total_usdt):
                     orders.append({'market': market, 'symbol': coin + '_usdt', 'amount': buy_amount, 'price': ask['price'], 'type': 'buy', 'contract_type': market})
                 else:
                     amount = need_buy * ask['price'] /  get_contract_price(coin)
-                    print ('buy amount is %s, floor it to %s' %(amount, int(amount)))
-                    sys.stdout.flush()
+                    log.debug('buy amount is %s, floor it to %s' %(amount, int(amount)))
                     buy_amount = int(amount)
                     if buy_amount != 0:
                         orders.append({'market': market, 'symbol': coin + '_usdt', 'amount': buy_amount, 'price': ask['price'], 'type': 'buy', 'contract_type': market})
-                    print ('need amount too small, exit')
-                    sys.stdout.flush()
+                    log.debug('need amount too small, exit')
                     no_need_fture = True
         return orders
     elif need < 0:
@@ -161,8 +158,7 @@ def make_order(market_infos, need, coin, total_coin, total_usdt):
         orders = []
         need_sell = -need
         coin_total = total_coin
-        print ('need_sell is [%s], coin_total is [%s]' %(need_sell, coin_total))
-        sys.stdout.flush()
+        log.info('need_sell is [%s], coin_total is [%s]' %(need_sell, coin_total))
         for mbid in bids:
             if no_need_spot and no_need_future:
                 return orders
@@ -183,10 +179,8 @@ def make_order(market_infos, need, coin, total_coin, total_usdt):
 
                 #FIXME: magic number
                 if need_sell < 0.01:
-                    print ('need amount too small, exit.')
-                    sys.stdout.flush()
-                    print (orders)
-                    sys.stdout.flush()
+                    log.debug('need amount too small, exit.')
+                    log.debug(orders)
                     no_need_spot = True
                     
             else:
@@ -199,13 +193,11 @@ def make_order(market_infos, need, coin, total_coin, total_usdt):
                     orders.append({'market': market, 'symbol': coin + '_usdt', 'amount': sell_amount, 'price': bid['price'], 'type': 'sell', 'contract_type': market})
                 else:
                     amount = need_sell * bid['price'] /  get_contract_price(coin)
-                    print ('sell amount is %s, floor it to %s' %(amount, int(amount)))
-                    sys.stdout.flush()
+                    log.debug('sell amount is %s, floor it to %s' %(amount, int(amount)))
                     sell_amount = int(amount)
                     if sell_amount != 0:
                         orders.append({'market': market, 'symbol': coin + '_usdt', 'amount': sell_amount, 'price': bid['price'], 'type': 'sell', 'contract_type': market})
-                    print ('need amount too small, exit')
-                    sys.stdout.flush()
+                    log.debug ('need amount too small, exit')
                     no_need_future=True
                     need_sell -= get_coin_amount_by_contract_amount(sell_amount, bid['price'], coin)
 
@@ -232,8 +224,6 @@ def suggestion(coin_market, future_market, coin, contract_type):
     future_userinfo = MARKETS['future']['userinfo']
     future_position = try_it(3)(future_market.future_position_4fix)(symbol, contract_type)
 
-    #print (type(future_userinfo), future_userinfo)
-    sys.stdout.flush()
     future_coin_info = future_userinfo['info'][coin]
     #availables = [contract['available'] for contract in future_coin_info['contracts'] if contract['contract_type'] == contract_type]
     #assert len(availables) <= 1, str(list(available))
@@ -241,8 +231,6 @@ def suggestion(coin_market, future_market, coin, contract_type):
     #if len(availables) == 1:
     #    available = availables[0]
 
-    # print (coin_userinfo)
-    sys.stdout.flush()
 
     if coin_userinfo['info']['funds']['freezed'][coin] != 0:
         type_msg = symbol
@@ -329,7 +317,6 @@ def get_information(coin_market, future_market, symbol=None, contract_type=None)
         MARKETS['future']['ticker'] = try_it(3)(future_market.future_ticker)(symbol, contract_type)['ticker']
 
 def run_after_split(to_split, n, fn):
-    sys.stdout.flush()
     pos = 0
     while pos < len(to_split):
         fn(to_split[pos: pos + n])
@@ -354,7 +341,6 @@ def send_future_orders(future_market, orders):
         contract_type = s_orders[0]['contract_type']
         s_orders = list(map(lambda order: order.update({'type': '4' if order['type'] == 'buy' else '2'}) or order, s_orders))
         log.info(str(future_market.future_batchTrade(symbol, contract_type, s_orders, leverRate=10)))
-        sys.stdout.flush()
     if orders:
         log.warning('send_future_orders' + str(orders))
     run_after_split(orders, MAX_ORDER_IN_ONE_REQUEST, _send_future_orders)
@@ -367,17 +353,14 @@ def cancel_trade(symbol):
     spotTradeDict = okcoinSpot.orderinfo(symbol, -1)
     spotReturn = spotTradeDict['result']
     #print(spotTradeDict)
-    sys.stdout.flush()
     if spotReturn:      #如果获取现货订单成功
         log.debug("get spot trade successed")
-        sys.stdout.flush()
         listOrdersId = []
         listOrders = spotTradeDict['orders']
         lengthOrders = len(listOrders)
         sumOrders = sumOrders + lengthOrders
 
         log.debug("spot orders : " + str(lengthOrders))
-        sys.stdout.flush()
 
         #获取需要取消的orderID
         for index in range(0, lengthOrders):
@@ -406,7 +389,6 @@ def cancel_trade(symbol):
             lenOrders = len(listOrders)
 
             log.debug(futuresList[index] + " future orders : " + str(lenOrders))
-            sys.stdout.flush()
 
             sumOrders = sumOrders + lenOrders
             #获取需要取消的orderID
@@ -436,7 +418,6 @@ def init_trade(symbol):
     cancelStatus = False
     while True:
         log.info("init_trade : " + str(tryCount))
-        sys.stdout.flush()
         cancelStatus = cancel_trade(symbol)
         tryCount = tryCount + 1
         if cancelStatus:
@@ -597,6 +578,8 @@ def do_balance(coin_type, contract_type):
 
 def balance_all():
     for coin_type in SUPPORT_COIN_TYPES:
+        init_trade(coin_type + '_usdt')
+    for coin_type in SUPPORT_COIN_TYPES:
         contract_type = WORKING_CONTRACT_TYPE
         do_balance(coin_type, contract_type)
 
@@ -657,17 +640,4 @@ if __name__ == "__main__":
             log.exception(e)
             log.warning("exception occurred, retry... it's the %d time(s)" % n)
 
-# get_information(okcoinSpot, okcoinFuture)
-# print (future_get_max_sell_amount(okcoinFuture, 'etc', 'next_week', 289))
 
-# # print (MARKETS['future']['userinfo'], '\n============================')
-# sys.stdout.flush()
-# # future_position = try_it(3)(okcoinFuture.future_position_4fix)('etc_usdt', 'next_week')
-
-# # print (future_position)
-# sys.stdout.flush()
-
-# etc 273.9652 48.50407788
-# etc 29.1803 9.03788610661
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-# total_balance = 13554.589049844257
