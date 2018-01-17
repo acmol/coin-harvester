@@ -585,8 +585,10 @@ def balance_all():
 
 
 def main():
+    time.sleep(10)
     balance_all()
     while True:
+        time.sleep(10)
         for coin_type in SUPPORT_COIN_TYPES:
             while True:
                 contract_type=WORKING_CONTRACT_TYPE

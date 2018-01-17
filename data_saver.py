@@ -117,7 +117,7 @@ while True:
     get_and_save_ticker('eth_usdt', okcoinFuture, local_time, 'next_week')
     time.sleep(1)
     get_and_save_ticker('eth_usdt', okcoinFuture, local_time, 'quarter')
-    conn.commit()
+    try_it(3)(conn.commit)()
 
     time.sleep(30)
 
