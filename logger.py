@@ -2,6 +2,7 @@
 import logging
 import logging.handlers
 from conf import EMAILS, EMAIL_TITLE
+import conf
 
 class MailHandler(logging.Handler):
     def __init__(self, emails):
@@ -14,7 +15,27 @@ class MailHandler(logging.Handler):
         f = os.popen("mail -s '%s' '%s'" % (EMAIL_TITLE, self.emails_str), 'w')
         f.write(msg)
         f.close()
+ 
+import smtplib
+from email.mime.text import MIMEText
 
+class SMTPMailHandler(logging.Handler):
+    def __init__(self, emails):
+        logging.Handler.__init__(self)
+        self.emails = emails
+        self.emails_str = ','.join(emails)
+
+    def emit(self, record):
+        self.mailer = smtplib.SMTP_SSL(conf.SMTP_MAIL_URI)
+        self.mailer.login(conf.SMTP_MAIL_FROM, conf.SMTP_MAIL_PASSWORD)
+        mime = MIMEText(self.format(record))
+        mime['Subject'] = conf.EMAIL_TITLE
+        mime['From'] = conf.SMTP_MAIL_FROM
+        mime['To'] = self.emails_str
+        mime['msg'] = self.format(record)
+        msg = mime.as_string()
+        
+        self.mailer.sendmail(conf.SMTP_MAIL_FROM, self.emails, msg)
 
 
 def get_logger(name):
@@ -35,7 +56,10 @@ def get_logger(name):
     fh.setLevel('DEBUG')
     logger.addHandler(fh)
 
-    filehandler = MailHandler(EMAILS)
+    if not conf.__dict__.get('USE_SMTP'):
+        filehandler = MailHandler(EMAILS)
+    else:
+        filehandler = SMTPMailHandler(EMAILS)
     filehandler.setLevel('WARNING')
     logger.addHandler(filehandler)
     logger.setLevel('DEBUG')
