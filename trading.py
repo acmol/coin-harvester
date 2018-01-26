@@ -550,9 +550,16 @@ def run_orders(spot_market, future_market, orders, coin_type):
     
     total_spot_amount = sum(map(lambda order: order['amount'], spot_orders))
     log.info('total spot amout :' + str(total_spot_amount))
+    devolved = None
     if len(spot_orders) != 0 and spot_orders[0]['type'] == 'sell':
-        devolve_for_sell(spot_market, future_market, coin_type, total_spot_amount)
+        devolved = devolve_for_sell(spot_market, future_market, coin_type, total_spot_amount)
+    
+    if devolved and total_spot_amount > devolved:
+        reduce_sell_amount = total_spot_amount - devolved
+        if spot_orders[0]['amount'] > reduce_sell_amount:
+            spot_orders[0]['amount'] -= reduce_sell_amount
     send_spot_orders(spot_market, spot_orders)
+    
     devolve_all_to_future(spot_market, future_market, coin_type)
     send_future_orders(future_market, future_orders)
 
